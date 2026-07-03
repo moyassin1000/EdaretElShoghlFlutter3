@@ -5,7 +5,7 @@ import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
 APP_NAME = "إدارة الشغل"
-PACKAGE_ID = "com.edaretelshoghl.app"
+PACKAGE_ID = "com.edaretelshoghl.edaret_el_shoghl"
 STORE_PASS = "EdaretElShoghl123"
 KEY_PASS = "EdaretElShoghl123"
 KEY_ALIAS = "release"
