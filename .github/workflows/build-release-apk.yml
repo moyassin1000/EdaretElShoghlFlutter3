@@ -30,6 +30,49 @@ jobs:
       - name: Create Android platform
         run: flutter create --platforms=android --org com.edaretelshoghl .
 
+      - name: Install Android SDK 36
+        run: |
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Force compileSdk 36
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          paths = [
+              Path("android/app/build.gradle"),
+              Path("android/app/build.gradle.kts"),
+          ]
+
+          for path in paths:
+              if not path.exists():
+                  continue
+
+              text = path.read_text(encoding="utf-8")
+
+              text = text.replace(
+                  "compileSdk = flutter.compileSdkVersion",
+                  "compileSdk = 36"
+              )
+
+              text = re.sub(
+                  r"compileSdk\s*=\s*\d+",
+                  "compileSdk = 36",
+                  text
+              )
+
+              text = re.sub(
+                  r"compileSdk\s+\d+",
+                  "compileSdk 36",
+                  text
+              )
+
+              path.write_text(text, encoding="utf-8")
+              print(f"Updated {path} to compileSdk 36")
+          PY
+
       - name: Install packages
         run: flutter pub get
 
