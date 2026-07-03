@@ -30,53 +30,66 @@ jobs:
       - name: Create Android platform
         run: flutter create --platforms=android --org com.edaretelshoghl .
 
-      - name: Install packages
-        run: flutter pub get
-
       - name: Install Android SDK 36
         run: |
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
           $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-36" "build-tools;36.0.0"
 
+      - name: Install packages
+        run: flutter pub get
+
       - name: Patch Android release signing and app name
         run: python3 tools/patch_android_release.py
 
-      - name: Force compileSdk 36 final
+      - name: Force compileSdk 36 everywhere
         run: |
           python3 - <<'PY'
           from pathlib import Path
           import re
+          import os
 
-          paths = [
-              Path("android/app/build.gradle"),
-              Path("android/app/build.gradle.kts"),
+          roots = [
+              Path("android"),
+              Path.home() / ".pub-cache",
           ]
 
-          for path in paths:
-              if not path.exists():
+          files = []
+          for root in roots:
+              if root.exists():
+                  files.extend(root.rglob("build.gradle"))
+                  files.extend(root.rglob("build.gradle.kts"))
+
+          patterns = [
+              (r"compileSdk\s*=\s*flutter\.compileSdkVersion", "compileSdk = 36"),
+              (r"compileSdk\s+flutter\.compileSdkVersion", "compileSdk 36"),
+              (r"compileSdkVersion\s+flutter\.compileSdkVersion", "compileSdkVersion 36"),
+              (r"compileSdk\s*=\s*\d+", "compileSdk = 36"),
+              (r"compileSdk\s+\d+", "compileSdk 36"),
+              (r"compileSdkVersion\s+\d+", "compileSdkVersion 36"),
+          ]
+
+          changed = 0
+
+          for path in files:
+              try:
+                  text = path.read_text(encoding="utf-8")
+              except Exception:
                   continue
 
-              text = path.read_text(encoding="utf-8")
+              original = text
 
-              replacements = {
-                  "compileSdk = flutter.compileSdkVersion": "compileSdk = 36",
-                  "compileSdk flutter.compileSdkVersion": "compileSdk 36",
-                  "compileSdkVersion flutter.compileSdkVersion": "compileSdkVersion 36",
-              }
+              for pattern, replacement in patterns:
+                  text = re.sub(pattern, replacement, text)
 
-              for old, new in replacements.items():
-                  text = text.replace(old, new)
+              if text != original:
+                  path.write_text(text, encoding="utf-8")
+                  changed += 1
+                  print(f"Updated: {path}")
+                  for line in text.splitlines():
+                      if "compileSdk" in line or "compileSdkVersion" in line:
+                          print("  " + line.strip())
 
-              text = re.sub(r"compileSdk\s*=\s*\d+", "compileSdk = 36", text)
-              text = re.sub(r"compileSdk\s+\d+", "compileSdk 36", text)
-              text = re.sub(r"compileSdkVersion\s+\d+", "compileSdkVersion 36", text)
-
-              path.write_text(text, encoding="utf-8")
-              print(f"Updated {path}")
-              print("---- compileSdk lines ----")
-              for line in text.splitlines():
-                  if "compileSdk" in line:
-                      print(line)
+          print(f"Total updated Gradle files: {changed}")
           PY
 
       - name: Build Release APK
