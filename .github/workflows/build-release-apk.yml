@@ -1,0 +1,46 @@
+name: Build Flutter Release APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, master ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Flutter doctor
+        run: flutter doctor -v
+
+      - name: Create Android platform
+        run: flutter create --platforms=android --org com.edaretelshoghl .
+
+      - name: Install packages
+        run: flutter pub get
+
+      - name: Patch Android release signing and app name
+        run: python3 tools/patch_android_release.py
+
+      - name: Build Release APK
+        run: flutter build apk --release
+
+      - name: Upload Release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: EdaretElShoghl-Release-APK
+          path: build/app/outputs/flutter-apk/app-release.apk
